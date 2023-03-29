@@ -1,20 +1,71 @@
-local disPlayerNames = 5
-local playerDistances = {}
+disPlayerNames = 5 --distance you see IDs at 
+keyToToggleIDs = 19 --left alt by default
 
-local function DrawText3D(position, text, r,g,b) 
-    local onScreen,_x,_y=World3dToScreen2d(position.x,position.y,position.z+1)
-    local dist = #(GetGameplayCamCoords()-position)
+playerDistances = {}
+showIDsAboveHead = false
+
+Citizen.CreateThread(function()
+    while true do 
+        if IsControlJustPressed(0, keyToToggleIDs) then
+            showIDsAboveHead = not showIDsAboveHead
+			print("changed")
+            Wait(50)
+        end
+        Wait(0)
+    end
+end)
+
+Citizen.CreateThread(function()
+    while true do
+        for id = 0, 255 do
+            if GetPlayerPed(id) ~= GetPlayerPed(-1) then
+                x1, y1, z1 = table.unpack(GetEntityCoords(GetPlayerPed(-1), true))
+                x2, y2, z2 = table.unpack(GetEntityCoords(GetPlayerPed(id), true))
+                distance = math.floor(GetDistanceBetweenCoords(x1,  y1,  z1,  x2,  y2,  z2,  true))
+                playerDistances[id] = distance
+            end
+        end
+        Citizen.Wait(1000)
+    end
+end)
+
+
+
+
+Citizen.CreateThread(function()
+    while true do
+        if showIDsAboveHead then
+            for id = 0, 255 do 
+                if NetworkIsPlayerActive(id) then
+                    if GetPlayerPed(id) ~= GetPlayerPed(-1) then
+                        if (playerDistances[id] < disPlayerNames) then
+                            x2, y2, z2 = table.unpack(GetEntityCoords(GetPlayerPed(id), true))
+                            if NetworkIsPlayerTalking(id) then
+                                DrawText3D(x2, y2, z2+1, GetPlayerServerId(id), 247,124,24)
+                            else
+                                DrawText3D(x2, y2, z2+1, GetPlayerServerId(id), 255,255,255)
+                            end
+                        end  
+                    end
+                end
+            end
+        end
+        Citizen.Wait(0)
+    end
+end)
+
+
+function DrawText3D(x,y,z, text, r,g,b) 
+    local onScreen,_x,_y=World3dToScreen2d(x,y,z)
+    local px,py,pz=table.unpack(GetGameplayCamCoords())
+    local dist = GetDistanceBetweenCoords(px,py,pz, x,y,z, 1)
  
     local scale = (1/dist)*2
     local fov = (1/GetGameplayCamFov())*100
     local scale = scale*fov
    
     if onScreen then
-        if not useCustomScale then
-            SetTextScale(0.0*scale, 0.55*scale)
-        else 
-            SetTextScale(0.0*scale, customScale)
-        end
+        SetTextScale(0.0*scale, 0.55*scale)
         SetTextFont(0)
         SetTextProportional(1)
         SetTextColour(r, g, b, 255)
@@ -28,42 +79,3 @@ local function DrawText3D(position, text, r,g,b)
         DrawText(_x,_y)
     end
 end
-
-Citizen.CreateThread(function()
-	Wait(500)
-    while true do
-        for _, id in ipairs(GetActivePlayers()) do
-            local targetPed = GetPlayerPed(id)
-            if targetPed ~= PlayerPedId() then
-                if playerDistances[id] then
-                    if playerDistances[id] < disPlayerNames then
-                        local targetPedCords = GetEntityCoords(targetPed)
-                        if NetworkIsPlayerTalking(id) then
-                            DrawText3D(targetPedCords, GetPlayerServerId(id), 247,124,24)
-                            DrawMarker(27, targetPedCords.x, targetPedCords.y, targetPedCords.z-0.97, 0, 0, 0, 0, 0, 0, 1.001, 1.0001, 0.5001, 173, 216, 230, 100, 0, 0, 0, 0)
-                        else
-                            DrawText3D(targetPedCords, GetPlayerServerId(id), 255,255,255)
-                        end
-                    end
-                end
-            end
-        end
-        Citizen.Wait(0)
-    end
-end)
-
-Citizen.CreateThread(function()
-    while true do
-        local playerPed = PlayerPedId()
-        local playerCoords = GetEntityCoords(playerPed)
-        
-        for _, id in ipairs(GetActivePlayers()) do
-            local targetPed = GetPlayerPed(id)
-            if targetPed ~= playerPed then
-                local distance = #(playerCoords-GetEntityCoords(targetPed))
-				playerDistances[id] = distance
-            end
-        end
-        Wait(1000)
-    end
-end)
